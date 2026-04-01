@@ -89,6 +89,9 @@
 "settings.hideDockIcon.confirm.title" = "Sembunyikan Ikon Dock?";
 "settings.hideDockIcon.confirm.message" = "Semua jendela akan ditutup. Anda dapat membukanya kembali dari ikon bilah menu.";
 "settings.hideDockIcon.confirm.ok" = "Sembunyikan & Tutup Jendela";
+"settings.menuBarIconStyle" = "Ikon Bilah Menu";
+"settings.menuBarIconStyle.outline" = "Garis Luar";
+"settings.menuBarIconStyle.filled" = "Terisi";
 "settings.currentVersion" = "Versi Saat Ini";
 "settings.features" = "Fitur";
 "settings.shortcuts" = "Pintasan";

@@ -62,6 +62,9 @@
 "settings.hideDockIcon.confirm.title" = "Dockアイコンを非表示にしますか？";
 "settings.hideDockIcon.confirm.message" = "すべてのウィンドウが閉じられます。メニューバーのアイコンから再度開くことができます。";
 "settings.hideDockIcon.confirm.ok" = "非表示にしてウィンドウを閉じる";
+"settings.menuBarIconStyle" = "メニューバーアイコン";
+"settings.menuBarIconStyle.outline" = "アウトライン";
+"settings.menuBarIconStyle.filled" = "塗りつぶし";
 "settings.currentVersion" = "現在のバージョン";
 
 /* Pro */

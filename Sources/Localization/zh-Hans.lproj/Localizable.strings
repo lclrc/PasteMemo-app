@@ -96,6 +96,9 @@
 "settings.hideDockIcon.confirm.title" = "隐藏 Dock 图标？";
 "settings.hideDockIcon.confirm.message" = "所有窗口将被关闭，你可以通过状态栏图标重新打开。";
 "settings.hideDockIcon.confirm.ok" = "隐藏并关闭窗口";
+"settings.menuBarIconStyle" = "状态栏图标";
+"settings.menuBarIconStyle.outline" = "描边";
+"settings.menuBarIconStyle.filled" = "填充";
 "settings.currentVersion" = "当前版本";
 "settings.features" = "功能";
 "settings.shortcuts" = "快捷键";

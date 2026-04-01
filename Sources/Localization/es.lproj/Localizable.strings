@@ -62,6 +62,9 @@
 "settings.hideDockIcon.confirm.title" = "¿Ocultar icono del Dock?";
 "settings.hideDockIcon.confirm.message" = "Se cerrarán todas las ventanas. Puedes reabrirlas desde el icono de la barra de menús.";
 "settings.hideDockIcon.confirm.ok" = "Ocultar y cerrar ventanas";
+"settings.menuBarIconStyle" = "Icono de la barra de menús";
+"settings.menuBarIconStyle.outline" = "Contorno";
+"settings.menuBarIconStyle.filled" = "Relleno";
 "settings.currentVersion" = "Versión actual";
 
 /* Pro */

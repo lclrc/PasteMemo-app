@@ -90,6 +90,9 @@
 "settings.hideDockIcon.confirm.title" = "隱藏 Dock 圖示？";
 "settings.hideDockIcon.confirm.message" = "所有視窗將被關閉，您可以透過狀態列圖示重新開啟。";
 "settings.hideDockIcon.confirm.ok" = "隱藏並關閉視窗";
+"settings.menuBarIconStyle" = "狀態列圖示";
+"settings.menuBarIconStyle.outline" = "描邊";
+"settings.menuBarIconStyle.filled" = "填充";
 "settings.currentVersion" = "目前版本";
 "settings.features" = "功能";
 "settings.shortcuts" = "快捷鍵";

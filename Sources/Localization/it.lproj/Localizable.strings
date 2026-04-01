@@ -89,6 +89,9 @@
 "settings.hideDockIcon.confirm.title" = "Nascondere l'icona del Dock?";
 "settings.hideDockIcon.confirm.message" = "Tutte le finestre verranno chiuse. Puoi riaprirle dall'icona nella barra dei menu.";
 "settings.hideDockIcon.confirm.ok" = "Nascondi e chiudi finestre";
+"settings.menuBarIconStyle" = "Icona barra dei menu";
+"settings.menuBarIconStyle.outline" = "Contorno";
+"settings.menuBarIconStyle.filled" = "Pieno";
 "settings.currentVersion" = "Versione attuale";
 "settings.features" = "Funzionalità";
 "settings.shortcuts" = "Scorciatoie";

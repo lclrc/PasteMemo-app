@@ -36,6 +36,7 @@ struct SettingsView: View {
 
 struct GeneralTab: View {
     @AppStorage("appearanceMode") private var appearanceMode = "system"
+    @AppStorage("menuBarIconStyle") private var menuBarIconStyle = "outline"
     @ObservedObject private var languageManager = LanguageManager.shared
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("hideDockIcon") private var hideDockIcon = false
@@ -93,6 +94,25 @@ struct GeneralTab: View {
                 }
                 .onChange(of: appearanceMode) {
                     AppDelegate.applyAppearance(appearanceMode)
+                }
+
+                Picker(L10n.tr("settings.menuBarIconStyle"), selection: $menuBarIconStyle) {
+                    Label {
+                        Text(L10n.tr("settings.menuBarIconStyle.outline"))
+                    } icon: {
+                        if let img = PasteMemoApp.menuBarIconPreview(filled: false) {
+                            Image(nsImage: img)
+                        }
+                    }
+                    .tag("outline")
+                    Label {
+                        Text(L10n.tr("settings.menuBarIconStyle.filled"))
+                    } icon: {
+                        if let img = PasteMemoApp.menuBarIconPreview(filled: true) {
+                            Image(nsImage: img)
+                        }
+                    }
+                    .tag("filled")
                 }
 
                 Picker(L10n.tr("settings.language"), selection: $languageManager.current) {

@@ -62,6 +62,9 @@
 "settings.hideDockIcon.confirm.title" = "Dock-Symbol ausblenden?";
 "settings.hideDockIcon.confirm.message" = "Alle Fenster werden geschlossen. Sie können sie über das Menüleisten-Symbol erneut öffnen.";
 "settings.hideDockIcon.confirm.ok" = "Ausblenden & Fenster schließen";
+"settings.menuBarIconStyle" = "Menüleisten-Symbol";
+"settings.menuBarIconStyle.outline" = "Umriss";
+"settings.menuBarIconStyle.filled" = "Ausgefüllt";
 "settings.currentVersion" = "Aktuelle Version";
 
 /* Pro */

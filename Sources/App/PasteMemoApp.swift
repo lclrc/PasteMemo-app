@@ -6,6 +6,7 @@ import AppKit
 struct PasteMemoApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @AppStorage("appearanceMode") private var appearanceMode: String = "system"
+    @AppStorage("menuBarIconStyle") private var menuBarIconStyle: String = "outline"
     @ObservedObject private var clipboardManager = ClipboardManager.shared
 
     var body: some Scene {
@@ -84,7 +85,7 @@ struct PasteMemoApp: App {
         MenuBarExtra {
             MenuBarContent()
         } label: {
-            if let image = Self.menuBarIcon(paused: clipboardManager.isPaused, relay: RelayManager.shared.isActive) {
+            if let image = Self.menuBarIcon(paused: clipboardManager.isPaused, relay: RelayManager.shared.isActive, filled: menuBarIconStyle == "filled") {
                 Image(nsImage: image)
             } else {
                 Image(systemName: "doc.on.clipboard")
@@ -95,17 +96,21 @@ struct PasteMemoApp: App {
 
     // MARK: - Menu Bar Icon
 
-    private static func menuBarIcon(paused: Bool, relay: Bool = false) -> NSImage? {
+    static func menuBarIconPreview(filled: Bool) -> NSImage? {
+        return menuBarIcon(paused: false, filled: filled)
+    }
+
+    private static func menuBarIcon(paused: Bool, relay: Bool = false, filled: Bool = false) -> NSImage? {
         let size = NSSize(width: 18, height: 18)
         let image = NSImage(size: size, flipped: true) { rect in
-            drawCards(in: rect)
+            drawCards(in: rect, filled: filled)
 
             if relay {
-                drawRelaySymbol(in: rect)
+                drawRelaySymbol(in: rect, filled: filled)
             } else if paused {
-                drawPauseSymbol(in: rect)
+                drawPauseSymbol(in: rect, filled: filled)
             } else {
-                drawLetterP(in: rect)
+                drawLetterP(in: rect, filled: filled)
             }
             return true
         }
@@ -119,8 +124,8 @@ struct PasteMemoApp: App {
     private static let cardGap: CGFloat = 2.5
     private static let cardStroke: CGFloat = 1.2
 
-    /// Front card outline + back card exposed L-edge (stroke only, template-safe)
-    private static func drawCards(in rect: NSRect) {
+    /// Front card + back card exposed L-edge
+    private static func drawCards(in rect: NSRect, filled: Bool = false) {
         let totalW = cardW + cardGap
         let totalH = cardH + cardGap
         let originX = (rect.width - totalW) / 2
@@ -154,8 +159,13 @@ struct PasteMemoApp: App {
         // Front card — full rounded rect
         let frontRect = NSRect(x: fX, y: fY, width: cardW, height: cardH)
         let front = NSBezierPath(roundedRect: frontRect, xRadius: r, yRadius: r)
-        front.lineWidth = cardStroke
-        front.stroke()
+        if filled {
+            NSColor.black.setFill()
+            front.fill()
+        } else {
+            front.lineWidth = cardStroke
+            front.stroke()
+        }
     }
 
     private static func frontCardCenter(in rect: NSRect) -> NSPoint {
@@ -166,7 +176,7 @@ struct PasteMemoApp: App {
         return NSPoint(x: fX + cardW / 2, y: fY + cardH / 2)
     }
 
-    private static func drawLetterP(in rect: NSRect) {
+    private static func drawLetterP(in rect: NSRect, filled: Bool = false) {
         let center = frontCardCenter(in: rect)
         let font = NSFont.systemFont(ofSize: 10.5, weight: .bold)
         let attrs: [NSAttributedString.Key: Any] = [
@@ -175,19 +185,31 @@ struct PasteMemoApp: App {
         ]
         let str = NSAttributedString(string: "P", attributes: attrs)
         let s = str.size()
+
+        if filled {
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current?.compositingOperation = .destinationOut
+        }
         str.draw(at: NSPoint(
             x: round(center.x - s.width / 2),
             y: round(center.y - s.height / 2)
         ))
+        if filled {
+            NSGraphicsContext.restoreGraphicsState()
+        }
     }
 
-    private static func drawPauseSymbol(in rect: NSRect) {
+    private static func drawPauseSymbol(in rect: NSRect, filled: Bool = false) {
         let center = frontCardCenter(in: rect)
         let barW: CGFloat = 1.8
         let barH: CGFloat = 7.0
         let gap: CGFloat = 2.2
 
         NSColor.black.setFill()
+        if filled {
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current?.compositingOperation = .destinationOut
+        }
 
         let leftBar = NSRect(
             x: center.x - gap / 2 - barW,
@@ -202,9 +224,13 @@ struct PasteMemoApp: App {
             width: barW, height: barH
         )
         NSBezierPath(roundedRect: rightBar, xRadius: 0.5, yRadius: 0.5).fill()
+
+        if filled {
+            NSGraphicsContext.restoreGraphicsState()
+        }
     }
 
-    private static func drawRelaySymbol(in rect: NSRect) {
+    private static func drawRelaySymbol(in rect: NSRect, filled: Bool = false) {
         let center = frontCardCenter(in: rect)
         let arrowLen: CGFloat = 5.0
         let headLen: CGFloat = 1.8
@@ -215,6 +241,11 @@ struct PasteMemoApp: App {
         let left = center.x - arrowLen / 2
         let right = center.x + arrowLen / 2
         NSColor.black.setStroke()
+
+        if filled {
+            NSGraphicsContext.saveGraphicsState()
+            NSGraphicsContext.current?.compositingOperation = .destinationOut
+        }
 
         // → top arrow
         let topY = center.y - vGap
@@ -237,6 +268,10 @@ struct PasteMemoApp: App {
         botPath.move(to: NSPoint(x: left + headLen, y: botY + headH))
         botPath.line(to: NSPoint(x: left, y: botY))
         botPath.stroke()
+
+        if filled {
+            NSGraphicsContext.restoreGraphicsState()
+        }
     }
 
     static let sharedModelContainer: ModelContainer = {
