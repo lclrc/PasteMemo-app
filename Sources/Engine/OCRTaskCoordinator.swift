@@ -2,11 +2,15 @@ import Foundation
 import SwiftData
 
 @MainActor
-final class OCRTaskCoordinator {
+final class OCRTaskCoordinator: ObservableObject {
     static let shared = OCRTaskCoordinator()
 
     private var modelContainer: ModelContainer?
     private var inFlightItemIDs = Set<String>()
+
+    @Published var scanTotal = 0
+    @Published var scanCompleted = 0
+    @Published var isScanning = false
 
     private init() {}
 
@@ -37,23 +41,44 @@ final class OCRTaskCoordinator {
     }
 
     func scanExistingImages() {
-        guard let container = modelContainer else { return }
+        guard let container = modelContainer, !isScanning else { return }
         let context = container.mainContext
         let descriptor = FetchDescriptor<ClipItem>()
         guard let items = try? context.fetch(descriptor) else { return }
-        for item in items where item.contentType == .image && item.imageData != nil {
-            if item.resolvedOCRStatus != .done {
-                enqueueForce(itemID: item.itemID)
+        let pending = items.filter { $0.contentType == .image && $0.resolvedOCRStatus != OCRStatus.done && $0.imageData != nil }
+        guard !pending.isEmpty else { return }
+
+        isScanning = true
+        scanTotal = pending.count
+        scanCompleted = 0
+
+        let ids = pending.map { $0.itemID }
+        Task {
+            for id in ids {
+                await withCheckedContinuation { continuation in
+                    enqueueForceThen(itemID: id) {
+                        continuation.resume()
+                    }
+                }
+                self.scanCompleted += 1
             }
+            self.isScanning = false
         }
     }
 
     private func enqueueForce(itemID: String) {
-        guard let container = modelContainer else { return }
-        guard inFlightItemIDs.insert(itemID).inserted else { return }
+        enqueueForceThen(itemID: itemID, completion: nil)
+    }
+
+    private func enqueueForceThen(itemID: String, completion: (() -> Void)?) {
+        guard let container = modelContainer else { completion?(); return }
+        guard inFlightItemIDs.insert(itemID).inserted else { completion?(); return }
 
         Task {
-            defer { Task { @MainActor in self.inFlightItemIDs.remove(itemID) } }
+            defer {
+                inFlightItemIDs.remove(itemID)
+                completion?()
+            }
             let context = container.mainContext
             guard let item = Self.fetchItem(id: itemID, context: context) else { return }
             guard item.contentType == .image, let imageData = item.imageData else {

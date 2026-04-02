@@ -5,6 +5,9 @@ struct ClipItemRow: View {
     let onTap: () -> Void
 
     var body: some View {
+        if item.isDeleted {
+            EmptyView()
+        } else {
         Button(action: onTap) {
             HStack(spacing: 10) {
                 // Type icon
@@ -70,6 +73,7 @@ struct ClipItemRow: View {
             } else {
                 NSCursor.pop()
             }
+        }
         }
     }
 

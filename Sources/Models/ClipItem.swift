@@ -26,6 +26,11 @@ enum ClipContentType: String, Codable, CaseIterable {
     case email = "email"
     case phone = "phone"
 
+    init(from decoder: Decoder) throws {
+        let rawValue = try decoder.singleValueContainer().decode(String.self)
+        self = ClipContentType(rawValue: rawValue) ?? .text
+    }
+
     static let defaultVisibleCases: [ClipContentType] = [
         .text, .code, .link, .image, .video, .audio, .document, .archive, .application, .color, .file
     ]
@@ -178,12 +183,11 @@ final class ClipItem {
         guard let ocrText, !ocrText.isEmpty else { return false }
 
         let query = trimmed.lowercased()
-        let contentMatch = content.lowercased().contains(query)
-        let titleMatch = (displayTitle ?? "").lowercased().contains(query)
-        let linkTitleMatch = (linkTitle ?? "").lowercased().contains(query)
-        let ocrMatch = ocrText.lowercased().contains(query)
-
-        return ocrMatch && !contentMatch && !titleMatch && !linkTitleMatch
+        // Check non-OCR fields first; short-circuit if any matches
+        if content.localizedCaseInsensitiveContains(query) { return false }
+        if let t = displayTitle, t.localizedCaseInsensitiveContains(query) { return false }
+        if let t = linkTitle, t.localizedCaseInsensitiveContains(query) { return false }
+        return ocrText.localizedCaseInsensitiveContains(query)
     }
 
     /// Resolved code language — uses stored override if available, otherwise auto-detects.

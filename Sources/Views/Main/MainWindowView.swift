@@ -533,6 +533,7 @@ struct MainWindowView: View {
 
     @ViewBuilder
     private func mainListRow(item: ClipItem) -> some View {
+        if item.isDeleted { EmptyView() } else {
         let isSelected = selectedItems.contains(item.persistentModelID)
         ClipItemListRow(
             item: item,
@@ -680,6 +681,7 @@ struct MainWindowView: View {
                     }
                 }
             }
+        }
     }
 
     private func handleRowClick(_ item: ClipItem) {

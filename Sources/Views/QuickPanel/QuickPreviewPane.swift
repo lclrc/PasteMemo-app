@@ -5,6 +5,7 @@ import AppKit
 struct QuickPreviewPane: View {
     let item: ClipItem
     var searchText: String = ""
+    @AppStorage(OCRTaskCoordinator.enableOCRKey) private var ocrEnabled = true
 
     private var isContentImage: Bool {
         item.contentType == .image && item.imageData != nil
@@ -185,7 +186,7 @@ struct QuickPreviewPane: View {
             imagePreview
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            if let ocrText = item.ocrText, !ocrText.isEmpty {
+            if ocrEnabled, let ocrText = item.ocrText, !ocrText.isEmpty {
                 ocrSnippetCard(text: ocrText)
             }
         }
@@ -226,7 +227,7 @@ struct QuickPreviewPane: View {
     }
 
     static func buildOCRSnippet(text: String, query: String) -> AttributedString {
-        let compact = text.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+        let compact = text.replacingOccurrences(of: #"[^\S\n]+"#, with: " ", options: .regularExpression)
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let snippet: String = {

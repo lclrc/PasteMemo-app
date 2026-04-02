@@ -9,6 +9,7 @@ struct ClipRow: View {
     var groupIcon: String?
     var showGroupLabel: Bool = true
     var searchText: String = ""
+    @AppStorage(OCRTaskCoordinator.enableOCRKey) private var ocrEnabled = true
 
     var body: some View {
         if item.isDeleted {
@@ -33,7 +34,7 @@ struct ClipRow: View {
                             .font(.system(size: 13))
                             .lineLimit(1)
 
-                        if item.matchesOCROnly(searchText: searchText) {
+                        if ocrEnabled, item.matchesOCROnly(searchText: searchText) {
                             ocrBadge
                         }
 

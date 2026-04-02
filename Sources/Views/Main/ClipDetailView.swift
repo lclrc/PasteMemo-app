@@ -10,6 +10,7 @@ struct ClipDetailView: View {
     @State private var isEditing = false
     @State private var editingContent = ""
     @State private var isOCRExpanded = false
+    @AppStorage(OCRTaskCoordinator.enableOCRKey) private var ocrEnabled = true
 
     private var isEditableType: Bool {
         item.contentType == .text || item.contentType == .code
@@ -35,7 +36,7 @@ struct ClipDetailView: View {
 
             Divider().opacity(0.3)
 
-            if item.contentType == .image {
+            if item.contentType == .image, ocrEnabled {
                 ocrCard
                 Divider().opacity(0.3)
             }

@@ -322,34 +322,32 @@ struct PreferencesTab: View {
 struct OCRSettingsSection: View {
     @AppStorage(OCRTaskCoordinator.enableOCRKey) private var ocrEnabled = true
     @AppStorage(OCRTaskCoordinator.autoOCRKey) private var autoProcess = true
-    @State private var isScanningExisting = false
-    @State private var alertMessage = ""
-    @State private var isAlertPresented = false
+    @ObservedObject private var coordinator = OCRTaskCoordinator.shared
 
     var body: some View {
         Section(L10n.tr("settings.ocr")) {
             Toggle(L10n.tr("settings.ocr.enable"), isOn: $ocrEnabled)
             if ocrEnabled {
                 Toggle(L10n.tr("settings.ocr.auto"), isOn: $autoProcess)
-                Button(L10n.tr("settings.ocr.scanExisting")) {
-                    isScanningExisting = true
-                    OCRTaskCoordinator.shared.scanExistingImages()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        isScanningExisting = false
-                        alertMessage = L10n.tr("settings.ocr.scanStarted")
-                        isAlertPresented = true
+
+                if coordinator.isScanning {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ProgressView(value: Double(coordinator.scanCompleted), total: Double(max(coordinator.scanTotal, 1)))
+                        Text("\(coordinator.scanCompleted) / \(coordinator.scanTotal)")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
                     }
+                } else {
+                    Button(L10n.tr("settings.ocr.scanExisting")) {
+                        OCRTaskCoordinator.shared.scanExistingImages()
+                    }
+                    .pointerCursor()
                 }
-                .disabled(isScanningExisting)
-                .pointerCursor()
 
                 Text(L10n.tr("settings.ocr.hint"))
                     .font(.callout)
                     .foregroundStyle(.tertiary)
             }
-        }
-        .alert(alertMessage, isPresented: $isAlertPresented) {
-            Button(L10n.tr("action.confirm")) {}
         }
     }
 }
