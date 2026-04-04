@@ -452,24 +452,61 @@ final class ClipboardManager: ObservableObject {
         }
     }
 
-    func writeToPasteboard(_ item: ClipItem) {
+    /// Extract filenames from a file-path content string (newline-separated paths).
+    /// Returns nil if no valid filenames can be extracted.
+    private func filenamesFromContent(_ content: String) -> String? {
+        let names = content.components(separatedBy: "\n")
+            .filter { !$0.isEmpty }
+            .map { URL(fileURLWithPath: $0).lastPathComponent }
+        return names.isEmpty ? nil : names.joined(separator: "\n")
+    }
+
+    func writeToPasteboard(_ item: ClipItem, targetApp: NSRunningApplication? = nil) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
 
+        let textOnly = isTextOnlyApp(targetApp)
+
         switch item.contentType {
         case .image:
-            // File-based images: write file URLs first (writeObjects clears pasteboard)
-            if item.content != "[Image]" {
-                writeFilePathsToPasteboard(pasteboard, content: item.content)
-            }
-            // Write as NSImage — system provides PNG/TIFF lazily on demand
-            if let data = item.imageData, let image = NSImage(data: data) {
-                pasteboard.writeObjects([image])
-            } else if let data = item.imageData {
-                pasteboard.setData(data, forType: .png)
+            if textOnly {
+                // Text-only app: paste filename if available, otherwise paste image as-is
+                if item.content != "[Image]", let names = filenamesFromContent(item.content) {
+                    pasteboard.setString(names, forType: .string)
+                } else if let data = item.imageData, let image = NSImage(data: data) {
+                    pasteboard.writeObjects([image])
+                } else if let data = item.imageData {
+                    pasteboard.setData(data, forType: .png)
+                }
+            } else {
+                // File-based images: write file URLs first (writeObjects clears pasteboard)
+                if item.content != "[Image]" {
+                    writeFilePathsToPasteboard(pasteboard, content: item.content)
+                    // Add text fallback for unknown apps
+                    if let names = filenamesFromContent(item.content) {
+                        pasteboard.setString(names, forType: .string)
+                    }
+                }
+                // Write as NSImage — system provides PNG/TIFF lazily on demand
+                if let data = item.imageData, let image = NSImage(data: data) {
+                    pasteboard.writeObjects([image])
+                } else if let data = item.imageData {
+                    pasteboard.setData(data, forType: .png)
+                }
             }
         case .file, .video, .audio, .document, .archive, .application:
-            writeFilePathsToPasteboard(pasteboard, content: item.content)
+            if textOnly {
+                // Text-only app: paste filename directly
+                if let names = filenamesFromContent(item.content) {
+                    pasteboard.setString(names, forType: .string)
+                }
+            } else {
+                writeFilePathsToPasteboard(pasteboard, content: item.content)
+                // Add text fallback for unknown apps
+                if let names = filenamesFromContent(item.content) {
+                    pasteboard.setString(names, forType: .string)
+                }
+            }
         default:
             pasteboard.setString(item.content, forType: .string)
             if let rtfData = item.richTextData {
