@@ -654,6 +654,7 @@ final class ClipboardManager: ObservableObject {
 
     func pasteMultiple(_ items: [ClipItem], forceNewLine: Bool = false, targetApp: NSRunningApplication? = nil) {
         let downgrade = shouldDowngradeRichText(targetApp: targetApp)
+        let textOnly = isTextOnlyApp(targetApp)
         let groups = buildPasteGroups(items, downgradeRichText: downgrade)
 
         SoundManager.playPaste()
@@ -668,7 +669,14 @@ final class ClipboardManager: ObservableObject {
 
                 switch group {
                 case .files(let paths):
-                    writeFileURLsToPasteboard(pasteboard, paths: paths)
+                    if textOnly {
+                        let names = paths.map { URL(fileURLWithPath: $0).lastPathComponent }
+                        pasteboard.setString(names.joined(separator: "\n"), forType: .string)
+                    } else {
+                        writeFileURLsToPasteboard(pasteboard, paths: paths)
+                        let names = paths.map { URL(fileURLWithPath: $0).lastPathComponent }
+                        pasteboard.setString(names.joined(separator: "\n"), forType: .string)
+                    }
                 case .text(let content, let rtfData, let rtfType):
                     pasteboard.setString(content, forType: .string)
                     if let rtfData {

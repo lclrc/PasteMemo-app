@@ -125,7 +125,7 @@ final class QuickPanelWindowController {
 
     func dismissAndPaste(_ item: ClipItem, clipboardManager: ClipboardManager, addNewLine: Bool = false) {
         let appToRestore = previousApp
-        clipboardManager.writeToPasteboard(item)
+        clipboardManager.writeToPasteboard(item, targetApp: appToRestore)
         item.lastUsedAt = Date()
         try? item.modelContext?.save()
         SoundManager.playPaste()
