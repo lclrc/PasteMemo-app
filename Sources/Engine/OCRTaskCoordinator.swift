@@ -101,14 +101,6 @@ final class OCRTaskCoordinator: ObservableObject {
                     refreshed.ocrStatus = result.hasText ? OCRStatus.done.rawValue : OCRStatus.skipped.rawValue
                     refreshed.ocrUpdatedAt = Date()
                     refreshed.ocrErrorMessage = nil
-                    if let text = refreshed.ocrText, !text.isEmpty {
-                        let existing = refreshed.isSensitive
-                        refreshed.isSensitive = existing || SensitiveDetector.isSensitive(
-                            content: text,
-                            sourceAppBundleID: refreshed.sourceAppBundleID,
-                            contentType: .text
-                        )
-                    }
                     ClipItemStore.saveAndNotify(context)
                 }
             } catch {
