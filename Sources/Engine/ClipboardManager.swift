@@ -482,16 +482,17 @@ final class ClipboardManager: ObservableObject {
                 // File-based images: write file URLs first (writeObjects clears pasteboard)
                 if item.content != "[Image]" {
                     writeFilePathsToPasteboard(pasteboard, content: item.content)
-                    // Add text fallback for unknown apps
-                    if let names = filenamesFromContent(item.content) {
-                        pasteboard.setString(names, forType: .string)
-                    }
                 }
                 // Write as NSImage — system provides PNG/TIFF lazily on demand
+                // Note: writeObjects clears the pasteboard, so text fallback must come after
                 if let data = item.imageData, let image = NSImage(data: data) {
                     pasteboard.writeObjects([image])
                 } else if let data = item.imageData {
                     pasteboard.setData(data, forType: .png)
+                }
+                // Add text fallback for unknown apps (after writeObjects which clears pasteboard)
+                if item.content != "[Image]", let names = filenamesFromContent(item.content) {
+                    pasteboard.setString(names, forType: .string)
                 }
             }
         case .file, .video, .audio, .document, .archive, .application:
@@ -583,8 +584,9 @@ final class ClipboardManager: ObservableObject {
     /// Paste multiple items in display order via sequential Cmd+V operations.
     /// Consecutive file items are merged into one paste; each text/image gets its own paste to preserve formatting.
     /// Apps that don't handle rich text paste well — downgrade to plain text for merging.
-    private static let PLAIN_TEXT_ONLY_APPS: Set<String> = [
-        // IM
+    /// This is a superset of TEXT_ONLY_APPS, adding IM apps that can receive files but need rich text downgrade.
+    private static let PLAIN_TEXT_ONLY_APPS: Set<String> = TEXT_ONLY_APPS.union([
+        // IM — can receive files, only need rich text downgrade
         "com.tencent.xinWeChat",          // WeChat
         "com.tencent.qq",                 // QQ
         "com.alibaba.DingTalkMac",        // DingTalk
@@ -598,48 +600,7 @@ final class ClipboardManager: ObservableObject {
         "org.whispersystems.signal-desktop", // Signal
         "jp.naver.line.mac",              // Line
         "us.zoom.xos",                    // Zoom
-        // Terminal
-        "com.apple.Terminal",
-        "com.googlecode.iterm2",          // iTerm2
-        "dev.warp.Warp-Stable",           // Warp
-        "org.alacritty",                  // Alacritty
-        "net.kovidgoyal.kitty",           // Kitty
-        "co.zeit.hyper",                  // Hyper
-        "com.github.wez.wezterm",        // WezTerm
-        "com.raphael.rio",               // Rio
-        "org.tabby",                     // Tabby
-        "dev.commandline.wave",          // Wave Terminal
-        "com.mitchellh.ghostty",         // Ghostty
-        // Code editors / IDEs
-        "com.apple.dt.Xcode",            // Xcode
-        "com.google.android.studio",     // Android Studio
-        "com.sublimetext.4",              // Sublime Text
-        "com.sublimetext.3",
-        "com.microsoft.VSCode",           // VS Code
-        "com.jetbrains.intellij",         // IntelliJ IDEA
-        "com.jetbrains.intellij.ce",
-        "com.jetbrains.WebStorm",
-        "com.jetbrains.pycharm",
-        "com.jetbrains.pycharm.ce",
-        "com.jetbrains.goland",
-        "com.jetbrains.CLion",
-        "com.jetbrains.PhpStorm",
-        "com.jetbrains.rubymine",
-        "com.jetbrains.rider",
-        "com.jetbrains.AppCode",
-        "com.jetbrains.fleet",
-        "dev.zed.Zed",                    // Zed
-        "com.panic.Nova",                 // Nova
-        "com.barebones.bbedit",           // BBEdit
-        "abnerworks.Typora",              // Typora
-        "com.cursor.Cursor",              // Cursor
-        "com.macromates.TextMate",        // TextMate
-        "com.coteditor.CotEditor",        // CotEditor
-        "com.neovide.neovide",            // Neovide
-        "com.qvacua.VimR",               // VimR
-        "com.codeium.windsurf",           // Windsurf
-        "com.trae.Trae",                  // Trae
-    ]
+    ])
 
     private func shouldDowngradeRichText(targetApp: NSRunningApplication?) -> Bool {
         guard let bundleID = targetApp?.bundleIdentifier else { return false }
@@ -647,7 +608,7 @@ final class ClipboardManager: ObservableObject {
     }
 
     /// Whether the target app is a text-only environment that cannot accept file URLs or image data.
-    func isTextOnlyApp(_ targetApp: NSRunningApplication?) -> Bool {
+    private func isTextOnlyApp(_ targetApp: NSRunningApplication?) -> Bool {
         guard let bundleID = targetApp?.bundleIdentifier else { return false }
         return Self.TEXT_ONLY_APPS.contains(bundleID)
     }
@@ -674,8 +635,6 @@ final class ClipboardManager: ObservableObject {
                         pasteboard.setString(names.joined(separator: "\n"), forType: .string)
                     } else {
                         writeFileURLsToPasteboard(pasteboard, paths: paths)
-                        let names = paths.map { URL(fileURLWithPath: $0).lastPathComponent }
-                        pasteboard.setString(names.joined(separator: "\n"), forType: .string)
                     }
                 case .text(let content, let rtfData, let rtfType):
                     pasteboard.setString(content, forType: .string)
