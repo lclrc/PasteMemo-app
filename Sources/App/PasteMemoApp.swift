@@ -295,6 +295,8 @@ struct PasteMemoApp: App {
 
     /// One-time migration: copy ZCONTENTTYPE → ZCONTENTTYPERAW for existing rows
     /// after the storage was changed from enum to raw String.
+    /// TODO: Remove after v1.4.0 — by then all users will have migrated.
+    /// Also remove the `migrateContentTypeColumn` call in `sharedModelContainer`.
     private static func migrateContentTypeColumn(at storeURL: URL) {
         // v2: previous migration ran before ModelContainer (column didn't exist yet),
         // so reset the old flag to re-run for users who got the broken 1.2.4.
