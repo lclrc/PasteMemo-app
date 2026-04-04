@@ -471,9 +471,13 @@ final class ClipboardManager: ObservableObject {
         switch item.contentType {
         case .image:
             if textOnly {
-                // Text-only app: paste filename if available, otherwise paste image as-is
-                if item.content != "[Image]", let names = filenamesFromContent(item.content) {
-                    pasteboard.setString(names, forType: .string)
+                // Text-only app: terminal gets full path, editor gets filename
+                if item.content != "[Image]" {
+                    if terminal {
+                        pasteboard.setString(item.content, forType: .string)
+                    } else if let names = filenamesFromContent(item.content) {
+                        pasteboard.setString(names, forType: .string)
+                    }
                 } else if let data = item.imageData, let image = NSImage(data: data) {
                     pasteboard.writeObjects([image])
                 } else if let data = item.imageData {
