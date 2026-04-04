@@ -578,6 +578,12 @@ struct QuickPanelView: View {
                                     .onTapGesture {
                                         handleItemClick(itemID)
                                     }
+                                    .onRightClick {
+                                        if !selectedItemIDs.contains(itemID) {
+                                            selectedItemIDs = [itemID]
+                                            lastNavigatedID = itemID
+                                        }
+                                    }
                                     .contextMenu {
                                         if item.isDeleted { EmptyView() } else
                                         if isMultiSelected, selectedItemIDs.contains(itemID) {

@@ -573,6 +573,12 @@ struct MainWindowView: View {
                 )
             }
             .onTapGesture { handleRowClick(item) }
+            .onRightClick {
+                if !selectedItems.contains(item.persistentModelID) {
+                    selectedItems = [item.persistentModelID]
+                    navigationCursor = item.persistentModelID
+                }
+            }
             .contextMenu {
                 if item.isDeleted { EmptyView() } else {
                 Button(item.isPinned ? L10n.tr("action.unpin") : L10n.tr("action.pin")) {
