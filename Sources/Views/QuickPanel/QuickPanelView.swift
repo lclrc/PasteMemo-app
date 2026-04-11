@@ -809,10 +809,8 @@ struct QuickPanelView: View {
                                 footerKey("↵", L10n.tr("quick.pasteAction"))
                                 footerKey("⇧↵", L10n.tr("quick.pasteNewLine"))
                             }
-                            if isFileBasedItem(cur) {
-                                footerKey("⌘↵", L10n.tr("quick.pastePath"))
-                            } else if cur.contentType == .text || cur.contentType == .code {
-                                footerKey("⌘↵", L10n.tr("action.pasteAsPlainText"))
+                            if let cmdEnterLabel = cmdEnterFooterLabel(for: cur) {
+                                footerKey("⌘↵", cmdEnterLabel)
                             }
                         }
                     }
@@ -840,6 +838,26 @@ struct QuickPanelView: View {
             .padding(.vertical, 10)
             .background(Color.primary.opacity(0.03))
         }
+    }
+
+    private func cmdEnterFooterLabel(for item: ClipItem) -> String? {
+        if item.contentType == .link {
+            return L10n.tr("cmd.openLink")
+        }
+
+        if isFileBasedItem(item) {
+            return L10n.tr("quick.pastePath")
+        }
+
+        if canSaveTextToFolder {
+            return L10n.tr("quick.saveToFolder")
+        }
+
+        if [.text, .code, .color, .email, .phone].contains(item.contentType) {
+            return L10n.tr("action.pasteAsPlainText")
+        }
+
+        return nil
     }
 
     private func footerKey(_ key: String, _ label: String) -> some View {
