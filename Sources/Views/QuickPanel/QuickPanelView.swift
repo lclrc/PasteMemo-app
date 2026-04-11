@@ -896,6 +896,7 @@ struct QuickPanelView: View {
             if showCommandPalette { return event }
             let hasShift = event.modifierFlags.contains(.shift)
             let hasCmd = event.modifierFlags.contains(.command)
+            let hasControl = event.modifierFlags.contains(.control)
 
             // Group suggestion keyboard navigation
             if isShowingSuggestions {
@@ -929,6 +930,25 @@ struct QuickPanelView: View {
             case 125: moveSelection(1, extendSelection: hasShift); return nil
             case 123: switchType(-1); return nil
             case 124: switchType(1); return nil
+            case 45:
+                if hasControl {
+                    moveSelection(1, extendSelection: hasShift)
+                    return nil
+                }
+                return event
+            case 35:
+                if hasControl && !hasCmd {
+                    moveSelection(-1, extendSelection: hasShift)
+                    return nil
+                }
+                return event
+            case 40: // Cmd+K
+                if hasCmd {
+                    showCommandPalette.toggle()
+                    if showCommandPalette { isSearchFocused = false }
+                    return nil
+                }
+                return event
             case 48: switchType(hasShift ? -1 : 1); return nil  // Tab / Shift+Tab
             case 13: // Cmd+W
                 if hasCmd { handleDismiss(); return nil }
@@ -944,13 +964,6 @@ struct QuickPanelView: View {
                     return nil
                 }
                 handleDismiss(); return nil
-            case 40: // Cmd+K
-                if hasCmd {
-                    showCommandPalette.toggle()
-                    if showCommandPalette { isSearchFocused = false }
-                    return nil
-                }
-                return event
             case 43: // Cmd+,
                 if hasCmd {
                     handleDismiss()
