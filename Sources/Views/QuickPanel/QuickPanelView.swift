@@ -41,6 +41,7 @@ struct QuickPanelView: View {
     @State private var cachedDisplayOrder: [ClipItem] = []
     @State private var cachedItemMap: [PersistentIdentifier: ClipItem] = [:]
     @State private var cachedIDSet: Set<PersistentIdentifier> = []
+    @AppStorage("quickPanelAutoPaste") private var quickPanelAutoPaste = true
 
     private var filteredItems: [ClipItem] { store.items }
 
@@ -772,7 +773,11 @@ struct QuickPanelView: View {
 
             // Main footer bar
             HStack(spacing: 0) {
-                if let prevApp = targetApp,
+                if !quickPanelAutoPaste {
+                    Text(L10n.tr("quick.copyToClipboard"))
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                } else if let prevApp = targetApp,
                    let appName = prevApp.localizedName {
                     HStack(spacing: 4) {
                         if let icon = prevApp.icon {
@@ -792,27 +797,21 @@ struct QuickPanelView: View {
                 Spacer()
                 HStack(spacing: 12) {
                     if isMultiSelected {
-                        if isTargetFinder {
-                            footerKey("↵", L10n.tr("quick.saveToFolder"))
-                        } else {
-                            footerKey("↵", L10n.tr("quick.batchPaste"))
+                        footerKey("↵", quickPanelAutoPaste ? (isTargetFinder ? L10n.tr("quick.saveToFolder") : L10n.tr("quick.batchPaste")) : L10n.tr("action.copy"))
+                        if quickPanelAutoPaste, !isTargetFinder {
                             footerKey("⇧↵", L10n.tr("quick.pasteNewLine"))
                         }
-                        footerKey("⌘↵", L10n.tr("action.pasteAsPlainText"))
+                        footerKey("⌘↵", quickPanelAutoPaste ? L10n.tr("action.pasteAsPlainText") : L10n.tr("cmd.copyAsPlainText"))
                     } else {
                         if let cur = currentItem {
-                            if cur.imageData != nil, canPasteToFinderFolder {
-                                footerKey("↵", L10n.tr("quick.pasteImage"))
-                            } else if canSaveTextToFolder {
-                                footerKey("↵", L10n.tr("quick.saveToFolder"))
-                            } else {
-                                footerKey("↵", L10n.tr("quick.pasteAction"))
-                                footerKey("⇧↵", L10n.tr("quick.pasteNewLine"))
+                            footerKey("↵", primaryFooterLabel(for: cur))
+                            if quickPanelAutoPaste {
+                                if !(cur.imageData != nil && canPasteToFinderFolder), !canSaveTextToFolder {
+                                    footerKey("⇧↵", L10n.tr("quick.pasteNewLine"))
+                                }
                             }
-                            if isFileBasedItem(cur) {
-                                footerKey("⌘↵", L10n.tr("quick.pastePath"))
-                            } else if cur.contentType == .text || cur.contentType == .code {
-                                footerKey("⌘↵", L10n.tr("action.pasteAsPlainText"))
+                            if let cmdEnterLabel = cmdEnterFooterLabel(for: cur) {
+                                footerKey("⌘↵", cmdEnterLabel)
                             }
                         }
                     }
@@ -834,12 +833,62 @@ struct QuickPanelView: View {
                     }
                     .buttonStyle(.plain)
                     .pointerCursor()
+
+                    Button {
+                        handleDismiss()
+                        AppAction.shared.openSettings?()
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 20, height: 20)
+                    }
+                    .buttonStyle(.plain)
+                    .pointerCursor()
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(Color.primary.opacity(0.03))
         }
+    }
+
+    private func primaryFooterLabel(for item: ClipItem) -> String {
+        if quickPanelAutoPaste {
+            if item.imageData != nil, canPasteToFinderFolder {
+                return L10n.tr("quick.pasteImage")
+            }
+            if canSaveTextToFolder {
+                return L10n.tr("quick.saveToFolder")
+            }
+            return L10n.tr("quick.pasteAction")
+        }
+
+        if isFileBasedItem(item) {
+            return L10n.tr("quick.copyPath")
+        }
+
+        return L10n.tr("action.copy")
+    }
+
+    private func cmdEnterFooterLabel(for item: ClipItem) -> String? {
+        if item.contentType == .link {
+            return L10n.tr("cmd.openLink")
+        }
+
+        if isFileBasedItem(item) {
+            return quickPanelAutoPaste ? L10n.tr("quick.pastePath") : L10n.tr("quick.copyPath")
+        }
+
+        if canSaveTextToFolder {
+            return L10n.tr("quick.saveToFolder")
+        }
+
+        if [.text, .code, .color, .email, .phone].contains(item.contentType) {
+            return quickPanelAutoPaste ? L10n.tr("action.pasteAsPlainText") : L10n.tr("cmd.copyAsPlainText")
+        }
+
+        return nil
     }
 
     private func footerKey(_ key: String, _ label: String) -> some View {
@@ -896,6 +945,7 @@ struct QuickPanelView: View {
             if showCommandPalette { return event }
             let hasShift = event.modifierFlags.contains(.shift)
             let hasCmd = event.modifierFlags.contains(.command)
+            let hasControl = event.modifierFlags.contains(.control)
 
             // Group suggestion keyboard navigation
             if isShowingSuggestions {
@@ -929,6 +979,25 @@ struct QuickPanelView: View {
             case 125: moveSelection(1, extendSelection: hasShift); return nil
             case 123: switchType(-1); return nil
             case 124: switchType(1); return nil
+            case 45:
+                if hasControl {
+                    moveSelection(1, extendSelection: hasShift)
+                    return nil
+                }
+                return event
+            case 35:
+                if hasControl && !hasCmd {
+                    moveSelection(-1, extendSelection: hasShift)
+                    return nil
+                }
+                return event
+            case 40: // Cmd+K
+                if hasCmd {
+                    showCommandPalette.toggle()
+                    if showCommandPalette { isSearchFocused = false }
+                    return nil
+                }
+                return event
             case 48: switchType(hasShift ? -1 : 1); return nil  // Tab / Shift+Tab
             case 13: // Cmd+W
                 if hasCmd { handleDismiss(); return nil }
@@ -944,13 +1013,6 @@ struct QuickPanelView: View {
                     return nil
                 }
                 handleDismiss(); return nil
-            case 40: // Cmd+K
-                if hasCmd {
-                    showCommandPalette.toggle()
-                    if showCommandPalette { isSearchFocused = false }
-                    return nil
-                }
-                return event
             case 43: // Cmd+,
                 if hasCmd {
                     handleDismiss()
@@ -1034,12 +1096,12 @@ struct QuickPanelView: View {
         isSearchFocused = true
         switch action {
         case .paste:
-            handlePaste()
+            handlePaste(respectAutoPaste: false)
         case .cmdEnter:
             if isMultiSelected {
-                handleMultiPaste(asPlainText: true, forceNewLine: false)
+                handleMultiPaste(asPlainText: true, forceNewLine: false, respectAutoPaste: false)
             } else {
-                handleCmdEnter()
+                handleCmdEnter(respectAutoPaste: false)
             }
         case .copy:
             let items = isMultiSelected ? currentItems : (currentItem.map { [$0] } ?? [])
@@ -1140,9 +1202,15 @@ struct QuickPanelView: View {
         return clipboardManager.isFinderApp(QuickPanelWindowController.shared.previousApp)
     }
 
-    private func handleMultiPaste(asPlainText: Bool, forceNewLine: Bool = false) {
+    private func handleMultiPaste(asPlainText: Bool, forceNewLine: Bool = false, respectAutoPaste: Bool = true) {
         let items = currentItems
         guard !items.isEmpty else { return }
+
+        if respectAutoPaste && !quickPanelAutoPaste {
+            guard !forceNewLine else { return }
+            copyItemsToClipboard(items, dismissAfterCopy: true, playSound: true)
+            return
+        }
 
         // Target is Finder → special file handling
         if isTargetFinder, !asPlainText {
@@ -1218,12 +1286,24 @@ struct QuickPanelView: View {
         }
     }
 
-    private func copyItemsToClipboard(_ items: [ClipItem]) {
+    private func copyItemsToClipboard(_ items: [ClipItem], dismissAfterCopy: Bool = false, playSound: Bool = false) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         let merged = items.map(\.content).joined(separator: "\n")
         pasteboard.setString(merged, forType: .string)
         clipboardManager.lastChangeCount = pasteboard.changeCount
+        items.forEach { $0.lastUsedAt = Date() }
+        try? modelContext.save()
+
+        if playSound {
+            SoundManager.playCopy()
+        }
+
+        if dismissAfterCopy {
+            QuickPanelWindowController.shared.dismiss()
+            return
+        }
+
         showCopiedToast = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { showCopiedToast = false }
     }
@@ -1374,7 +1454,7 @@ struct QuickPanelView: View {
         return isTargetFinder
     }
 
-    private func handleCmdEnter() {
+    private func handleCmdEnter(respectAutoPaste: Bool = true) {
         guard let item = currentItem else { return }
         // Link → open in browser
         if item.contentType == .link,
@@ -1384,7 +1464,11 @@ struct QuickPanelView: View {
         }
         // File-based (including file images) → paste path
         else if isFileBasedItem(item) {
-            handlePastePath()
+            if !respectAutoPaste || quickPanelAutoPaste {
+                handlePastePath()
+            } else {
+                copyItemToClipboardAndDismiss(item, plainTextOnly: true)
+            }
         }
         // Pure text → save to folder if target is Finder
         else if canSaveTextToFolder {
@@ -1392,8 +1476,28 @@ struct QuickPanelView: View {
         }
         // Text-like types → paste as plain text
         else if [.text, .code, .color, .email, .phone].contains(item.contentType) {
-            handlePlainTextPaste(item)
+            if !respectAutoPaste || quickPanelAutoPaste {
+                handlePlainTextPaste(item)
+            } else {
+                copyItemToClipboardAndDismiss(item, plainTextOnly: true)
+            }
         }
+    }
+
+    private func copyItemToClipboardAndDismiss(_ item: ClipItem, plainTextOnly: Bool = false) {
+        if plainTextOnly {
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(item.content, forType: .string)
+            clipboardManager.lastChangeCount = pasteboard.changeCount
+        } else {
+            clipboardManager.writeToPasteboard(item)
+        }
+
+        item.lastUsedAt = Date()
+        try? item.modelContext?.save()
+        SoundManager.playCopy()
+        QuickPanelWindowController.shared.dismiss()
     }
 
     private func handlePlainTextPaste(_ item: ClipItem) {
@@ -1547,8 +1651,17 @@ struct QuickPanelView: View {
         }
     }
 
-    private func handlePaste(forceNewLine: Bool = false) {
+    private func handlePaste(forceNewLine: Bool = false, respectAutoPaste: Bool = true) {
         guard let item = currentItem else { return }
+        if respectAutoPaste && !quickPanelAutoPaste {
+            guard !forceNewLine else { return }
+            if isFileBasedItem(item) {
+                copyItemToClipboardAndDismiss(item, plainTextOnly: true)
+            } else {
+                copyItemToClipboardAndDismiss(item)
+            }
+            return
+        }
         if canPasteToFinderFolder {
             handlePasteImageToFolder()
         } else if canSaveLinkToFolder {

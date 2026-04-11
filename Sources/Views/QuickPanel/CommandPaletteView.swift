@@ -147,9 +147,11 @@ struct CommandPaletteContent: View {
 
     private func cmdEnterLabel(for item: ClipItem) -> String {
         switch item.contentType {
-        case .text, .code, .color, .email, .phone: L10n.tr("cmd.pasteAsPlainText")
+        case .text, .code, .color, .email, .phone:
+            L10n.tr("cmd.pasteAsPlainText")
         case .link: L10n.tr("cmd.openLink")
-        case .image, .file, .document, .archive, .application, .video, .audio: L10n.tr("cmd.pastePath")
+        case .image, .file, .document, .archive, .application, .video, .audio:
+            L10n.tr("cmd.pastePath")
         }
     }
 
@@ -228,6 +230,7 @@ struct CommandPaletteContent: View {
     private func installKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             let code = Int(event.keyCode)
+            let hasControl = event.modifierFlags.contains(.control)
             switch code {
             case 53: dismiss(); return nil // Esc
             case 40 where event.modifierFlags.contains(.command): dismiss(); return nil // Cmd+K
@@ -236,6 +239,18 @@ struct CommandPaletteContent: View {
                 selectedIndex = selectedIndex > 0 ? selectedIndex - 1 : actions.count - 1; return nil
             case 125: // Down
                 selectedIndex = selectedIndex < actions.count - 1 ? selectedIndex + 1 : 0; return nil
+            case 35: // P
+                if hasControl {
+                    selectedIndex = selectedIndex > 0 ? selectedIndex - 1 : actions.count - 1
+                    return nil
+                }
+                return event
+            case 45: // N
+                if hasControl {
+                    selectedIndex = selectedIndex < actions.count - 1 ? selectedIndex + 1 : 0
+                    return nil
+                }
+                return event
             case 36: execute(actions[selectedIndex]); return nil // Enter
             default:
                 if let match = actions.first(where: { $0.keyCode == code }) {
