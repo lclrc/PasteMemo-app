@@ -596,6 +596,8 @@ struct SponsorTab: View {
 
 struct AboutTab: View {
     @ObservedObject private var updateChecker = UpdateChecker.shared
+    @AppStorage("autoCheckUpdates") private var autoCheckUpdates = true
+    @AppStorage("updateCheckInterval") private var updateCheckInterval = 24
 
     var body: some View {
         Form {
@@ -627,6 +629,25 @@ struct AboutTab: View {
                     Task { await updateChecker.checkForUpdates(userInitiated: true) }
                 }
                 .disabled(updateChecker.isChecking)
+                Toggle(L10n.tr("settings.autoCheckUpdates"), isOn: $autoCheckUpdates)
+                    .onChange(of: autoCheckUpdates) {
+                        if autoCheckUpdates {
+                            updateChecker.startPeriodicChecks()
+                        } else {
+                            updateChecker.stopPeriodicChecks()
+                        }
+                    }
+                if autoCheckUpdates {
+                    Picker(L10n.tr("settings.updateCheckInterval"), selection: $updateCheckInterval) {
+                        Text(L10n.tr("settings.updateCheckInterval.6h")).tag(6)
+                        Text(L10n.tr("settings.updateCheckInterval.12h")).tag(12)
+                        Text(L10n.tr("settings.updateCheckInterval.24h")).tag(24)
+                        Text(L10n.tr("settings.updateCheckInterval.72h")).tag(72)
+                    }
+                    .onChange(of: updateCheckInterval) {
+                        updateChecker.startPeriodicChecks()
+                    }
+                }
             }
 
             Section {

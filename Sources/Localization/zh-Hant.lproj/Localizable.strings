@@ -670,6 +670,12 @@
 "settings.ocr.scanExisting" = "掃描現有圖片";
 "settings.ocr.scanStarted" = "已開始在背景掃描現有圖片。";
 "settings.ocr.hint" = "OCR 會在本機執行，讓圖片中的文字可被搜尋。";
+"settings.autoCheckUpdates" = "自動檢查更新";
+"settings.updateCheckInterval" = "檢查頻率";
+"settings.updateCheckInterval.6h" = "每 6 小時";
+"settings.updateCheckInterval.12h" = "每 12 小時";
+"settings.updateCheckInterval.24h" = "每 24 小時";
+"settings.updateCheckInterval.72h" = "每 3 天";
 "detail.ocr" = "辨識文字";
 "detail.ocr.copy" = "複製文字";
 "detail.ocr.retry" = "重新辨識";

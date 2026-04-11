@@ -682,6 +682,12 @@
 "settings.ocr.scanExisting" = "Сканировать существующие изображения";
 "settings.ocr.scanStarted" = "Фоновый OCR для существующих изображений запущен.";
 "settings.ocr.hint" = "OCR выполняется на устройстве и делает текст внутри изображений доступным для поиска.";
+"settings.autoCheckUpdates" = "Автоматически проверять обновления";
+"settings.updateCheckInterval" = "Интервал проверки";
+"settings.updateCheckInterval.6h" = "Каждые 6 часов";
+"settings.updateCheckInterval.12h" = "Каждые 12 часов";
+"settings.updateCheckInterval.24h" = "Каждые 24 часа";
+"settings.updateCheckInterval.72h" = "Каждые 3 дня";
 "detail.ocr" = "Распознанный текст";
 "detail.ocr.copy" = "Копировать текст";
 "detail.ocr.retry" = "Повторить OCR";

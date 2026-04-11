@@ -42,6 +42,9 @@ final class UpdateChecker: ObservableObject {
 
     func checkForUpdates(userInitiated: Bool = false) async {
         guard userInitiated || !isDev else { return }
+        if !userInitiated {
+            guard UserDefaults.standard.object(forKey: "autoCheckUpdates") as? Bool ?? true else { return }
+        }
 
         isChecking = true
         defer { isChecking = false }
@@ -199,15 +202,20 @@ final class UpdateChecker: ObservableObject {
     func startPeriodicChecks() {
         periodicTimer?.invalidate()
         guard !isDev else { return }
+        guard UserDefaults.standard.object(forKey: "autoCheckUpdates") as? Bool ?? true else { return }
 
-        let hours = max(UserDefaults.standard.integer(forKey: "updateCheckInterval"), 24)
+        let hours = max(UserDefaults.standard.integer(forKey: "updateCheckInterval"), 6)
 
         periodicTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(hours * 3600), repeats: true) { [weak self] _ in
             Task { @MainActor in
-                guard UserDefaults.standard.bool(forKey: "autoCheckUpdates") else { return }
                 await self?.checkForUpdates()
             }
         }
+    }
+
+    func stopPeriodicChecks() {
+        periodicTimer?.invalidate()
+        periodicTimer = nil
     }
 
     // MARK: - Private

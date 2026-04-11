@@ -661,6 +661,12 @@
 "settings.privacy.analytics" = "Usage Statistics";
 "settings.privacy.analyticsToggle" = "Send anonymous usage statistics";
 "settings.privacy.analyticsHint" = "Help improve PasteMemo by sending anonymous usage data (app version, system language, macOS version). No personal data is collected.";
+"settings.autoCheckUpdates" = "Auto check for updates";
+"settings.updateCheckInterval" = "Check interval";
+"settings.updateCheckInterval.6h" = "Every 6 hours";
+"settings.updateCheckInterval.12h" = "Every 12 hours";
+"settings.updateCheckInterval.24h" = "Every 24 hours";
+"settings.updateCheckInterval.72h" = "Every 3 days";
 "analytics.consent.title" = "Usage Statistics";
 "analytics.consent.message" = "Would you like to send anonymous usage statistics to help improve PasteMemo? This includes app version, system language, and macOS version. No personal data is collected. You can change this anytime in Settings → Privacy.";
 "analytics.consent.allow" = "Allow";

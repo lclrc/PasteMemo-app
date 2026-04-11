@@ -661,6 +661,12 @@
 "settings.privacy.analytics" = "使用统计";
 "settings.privacy.analyticsToggle" = "发送匿名使用统计";
 "settings.privacy.analyticsHint" = "帮助改进 PasteMemo，发送匿名使用数据（应用版本、系统语言、macOS 版本）。不采集任何个人信息。";
+"settings.autoCheckUpdates" = "自动检查更新";
+"settings.updateCheckInterval" = "检查频率";
+"settings.updateCheckInterval.6h" = "每 6 小时";
+"settings.updateCheckInterval.12h" = "每 12 小时";
+"settings.updateCheckInterval.24h" = "每 24 小时";
+"settings.updateCheckInterval.72h" = "每 3 天";
 "analytics.consent.title" = "使用统计";
 "analytics.consent.message" = "是否发送匿名使用统计以帮助改进 PasteMemo？包括应用版本、系统语言和 macOS 版本，不采集任何个人信息。你可以随时在 设置 → 隐私 中更改。";
 "analytics.consent.allow" = "允许";
