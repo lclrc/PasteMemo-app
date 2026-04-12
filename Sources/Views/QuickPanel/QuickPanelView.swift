@@ -231,7 +231,6 @@ struct QuickPanelView: View {
             isSearchFocused = true
         }
         .onChange(of: searchText) {
-            groupSuggestionIndex = -1
             if selectedGroupFilter != nil {
                 // Group tag is active — search text is just keyword
                 store.searchText = searchText
@@ -243,6 +242,9 @@ struct QuickPanelView: View {
                 store.groupName = nil
                 store.searchText = searchText
             }
+            // Default-select the first suggestion row when typing `/`,
+            // so Enter immediately picks the top group/app.
+            groupSuggestionIndex = totalSuggestionCount > 0 ? 0 : -1
         }
         .onChange(of: selectedFilter) {
             store.pinnedOnly = false
@@ -301,9 +303,9 @@ struct QuickPanelView: View {
     private var currentSuggestionGroups: [(name: String, icon: String, count: Int)] {
         guard searchText.hasPrefix(Self.GROUP_SEARCH_PREFIX) else { return [] }
         let query = String(searchText.dropFirst()).trimmingCharacters(in: .whitespaces).lowercased()
-        // Hide if exact match on group
         return store.sidebarCounts.byGroup.filter { group in
-            query.isEmpty || group.name.lowercased().contains(query)
+            guard group.count > 0 else { return false }
+            return query.isEmpty || group.name.lowercased().contains(query)
         }
     }
 
@@ -1010,6 +1012,14 @@ struct QuickPanelView: View {
                 }
                 if let qlPanel = QLPreviewPanel.shared(), qlPanel.isVisible {
                     qlPanel.orderOut(nil)
+                    return nil
+                }
+                // If a group/app filter tag is active, Esc first clears the tag
+                // (and any keyword) before dismissing the panel.
+                if selectedGroupFilter != nil {
+                    clearGroupFilter()
+                    searchText = ""
+                    isSearchFocused = true
                     return nil
                 }
                 handleDismiss(); return nil
