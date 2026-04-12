@@ -62,6 +62,14 @@ final class WebPreviewPool {
 
     func attach(to container: NSView) {
         if webView.superview !== container {
+            // Switching containers — clear stale DOM/JS so the next load()
+            // never flashes the previous item's content and is not short-
+            // circuited by the loadedURL cache.
+            webView.stopLoading()
+            webView.loadHTMLString("", baseURL: nil)
+            coordinator.loadedURL = nil
+            coordinator.removeErrorOverlay(from: webView)
+
             webView.removeFromSuperview()
             webView.frame = container.bounds
             webView.autoresizingMask = [.width, .height]
