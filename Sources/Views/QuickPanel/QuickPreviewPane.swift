@@ -44,7 +44,7 @@ struct QuickPreviewPane: View {
 
     @ViewBuilder
     var body: some View {
-        if item.isDeleted { EmptyView() } else {
+        if item.isDeleted || item.modelContext == nil { EmptyView() } else {
         VStack(spacing: 0) {
             Group {
                 if item.isSensitive {
@@ -67,7 +67,7 @@ struct QuickPreviewPane: View {
             guard !Task.isCancelled else { return }
             allowHeavyPreview = true
         }
-        } // isDeleted guard
+        } // zombie-object guard: isDeleted alone is unsafe after deleteAndNotify — see QuickPanelView.swift
     }
 
     @ViewBuilder
