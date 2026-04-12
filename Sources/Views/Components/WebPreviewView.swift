@@ -8,6 +8,8 @@ final class WebPreviewPool {
     private let webView: WKWebView
     private let coordinator = Coordinator()
     private weak var activeContainer: NSView?
+    var readinessHandler: ((Bool) -> Void)?
+    private var readyToken = 0
 
     private init() {
         let config = WKWebViewConfiguration()
@@ -58,17 +60,14 @@ final class WebPreviewPool {
         webView.allowsBackForwardNavigationGestures = false
         webView.setValue(false, forKey: "drawsBackground")
         webView.navigationDelegate = coordinator
+        coordinator.pool = self
     }
 
     func attach(to container: NSView) {
         if webView.superview !== container {
-            // Switching containers — clear stale DOM/JS so the next load()
-            // never flashes the previous item's content and is not short-
-            // circuited by the loadedURL cache.
             webView.stopLoading()
             webView.loadHTMLString("", baseURL: nil)
             coordinator.loadedURL = nil
-            coordinator.removeErrorOverlay(from: webView)
 
             webView.removeFromSuperview()
             webView.frame = container.bounds
@@ -82,7 +81,7 @@ final class WebPreviewPool {
         if coordinator.loadedURL == url { return }
         webView.stopLoading()
         coordinator.loadedURL = url
-        coordinator.removeErrorOverlay(from: webView)
+        notifyReady(false)
         webView.load(URLRequest(url: url, timeoutInterval: 15))
     }
 
@@ -96,9 +95,27 @@ final class WebPreviewPool {
         activeContainer = nil
     }
 
+    fileprivate func markReadyAfterFirstPaint() {
+        readyToken &+= 1
+        let token = readyToken
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(120)) { [weak self] in
+            guard let self, self.readyToken == token else { return }
+            self.notifyReady(true)
+        }
+    }
+
+    fileprivate func markReadyImmediately() {
+        readyToken &+= 1
+        notifyReady(true)
+    }
+
+    private func notifyReady(_ ready: Bool) {
+        readinessHandler?(ready)
+    }
+
     final class Coordinator: NSObject, WKNavigationDelegate {
         var loadedURL: URL?
-        private weak var errorOverlay: NSView?
+        weak var pool: WebPreviewPool?
 
         func webView(
             _ webView: WKWebView,
@@ -116,44 +133,19 @@ final class WebPreviewPool {
         }
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
-            showErrorOverlay(on: webView, message: error.localizedDescription)
+            // Ready stays false; caller keeps the static fallback visible.
         }
 
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
-            showErrorOverlay(on: webView, message: error.localizedDescription)
+            // Ready stays false; caller keeps the static fallback visible.
+        }
+
+        func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+            pool?.markReadyAfterFirstPaint()
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            removeErrorOverlay(from: webView)
-        }
-
-        func removeErrorOverlay(from webView: WKWebView) {
-            errorOverlay?.removeFromSuperview()
-            errorOverlay = nil
-        }
-
-        private func showErrorOverlay(on webView: WKWebView, message: String) {
-            removeErrorOverlay(from: webView)
-
-            let overlay = NSView(frame: webView.bounds)
-            overlay.autoresizingMask = [.width, .height]
-            overlay.wantsLayer = true
-
-            let label = NSTextField(wrappingLabelWithString: L10n.tr("detail.preview_failed"))
-            label.font = .systemFont(ofSize: 13)
-            label.textColor = .tertiaryLabelColor
-            label.alignment = .center
-            label.translatesAutoresizingMaskIntoConstraints = false
-
-            overlay.addSubview(label)
-            NSLayoutConstraint.activate([
-                label.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
-                label.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
-                label.widthAnchor.constraint(lessThanOrEqualTo: overlay.widthAnchor, constant: -32),
-            ])
-
-            webView.addSubview(overlay)
-            errorOverlay = overlay
+            pool?.markReadyImmediately()
         }
     }
 }
@@ -170,15 +162,18 @@ private final class WebPreviewContainerView: NSView {
 
 struct WebPreviewView: NSViewRepresentable {
     let url: URL
+    var onReadyStateChange: ((Bool) -> Void)? = nil
 
     func makeNSView(context: Context) -> NSView {
         let view = WebPreviewContainerView(frame: .zero)
+        WebPreviewPool.shared.readinessHandler = onReadyStateChange
         WebPreviewPool.shared.attach(to: view)
         WebPreviewPool.shared.load(url)
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
+        WebPreviewPool.shared.readinessHandler = onReadyStateChange
         WebPreviewPool.shared.attach(to: nsView)
         WebPreviewPool.shared.load(url)
     }

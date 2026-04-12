@@ -7,6 +7,7 @@ struct QuickPreviewPane: View {
     var searchText: String = ""
     @AppStorage(OCRTaskCoordinator.enableOCRKey) private var ocrEnabled = true
     @State private var allowHeavyPreview = false
+    @State private var webPreviewReady = false
 
     struct CodePreviewSummary: Equatable {
         let language: CodeLanguage
@@ -63,6 +64,7 @@ struct QuickPreviewPane: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: item.persistentModelID) {
             allowHeavyPreview = false
+            webPreviewReady = false
             try? await Task.sleep(for: heavyPreviewDelay)
             guard !Task.isCancelled else { return }
             allowHeavyPreview = true
@@ -356,11 +358,20 @@ struct QuickPreviewPane: View {
 
                 if ((imageLinkPreviewEnabled && LinkMetadataFetcher.isImageURL(trimmed)) || webPreviewEnabled), allowHeavyPreview {
                     Divider().opacity(0.25)
-                    WebPreviewView(url: url)
+                    ZStack {
+                        WebPreviewView(url: url) { ready in
+                            webPreviewReady = ready
+                        }
                         .id(url)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
-                        .padding(.horizontal, 10)
-                        .padding(.bottom, 10)
+                        .opacity(webPreviewReady ? 1 : 0)
+
+                        if !webPreviewReady {
+                            linkStaticPreview(url: url)
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 10)
                 } else {
                     linkStaticPreview(url: url)
                         .padding(.horizontal, 10)
