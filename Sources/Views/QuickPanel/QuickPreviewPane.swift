@@ -8,6 +8,7 @@ struct QuickPreviewPane: View {
     @AppStorage(OCRTaskCoordinator.enableOCRKey) private var ocrEnabled = true
     @State private var allowHeavyPreview = false
     @State private var webPreviewReady = false
+    @State private var cachedCodeSummary: CodePreviewSummary?
 
     struct CodePreviewSummary: Equatable {
         let language: CodeLanguage
@@ -40,7 +41,45 @@ struct QuickPreviewPane: View {
     }
 
     private var codeSummary: CodePreviewSummary {
-        Self.buildCodeSummary(text: item.content, language: item.resolvedCodeLanguage)
+        // For huge payloads, buildCodeSummary splits the whole string by
+        // newlines — a 10 MB paste can block the main thread for hundreds
+        // of ms per render. We lazily cache the result and compute it off
+        // the main actor in `.task(id:)`; a lightweight fallback is used
+        // only on the very first render.
+        if let cached = cachedCodeSummary {
+            return cached
+        }
+        return Self.cheapCodeSummary(text: item.content, language: item.resolvedCodeLanguage)
+    }
+
+    /// O(preview limit) summary used as an instant placeholder while the
+    /// detached task computes the real summary. It never scans the full
+    /// content, so even multi-megabyte items stay responsive.
+    static func cheapCodeSummary(
+        text: String,
+        language: CodeLanguage?,
+        previewLineLimit: Int = 8,
+        previewCharacterLimit: Int = 420
+    ) -> CodePreviewSummary {
+        let resolvedLanguage = language ?? .unknown
+        let head = String(text.prefix(previewCharacterLimit * 2))
+        let lines = head.components(separatedBy: .newlines)
+        let previewLines = Array(lines.prefix(previewLineLimit)).joined(separator: "\n")
+        var snippet = String(previewLines.prefix(previewCharacterLimit))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let textCount = text.count
+        let approxTruncated = text.count > head.count || lines.count > previewLineLimit
+        if approxTruncated, !snippet.isEmpty, !snippet.hasSuffix("…") {
+            snippet += "…"
+        }
+        return CodePreviewSummary(
+            language: resolvedLanguage,
+            lineCount: max(lines.count, 1),
+            characterCount: textCount,
+            snippet: snippet,
+            isTruncated: approxTruncated,
+            supportsExpandedPreview: false
+        )
     }
 
     @ViewBuilder
@@ -65,6 +104,20 @@ struct QuickPreviewPane: View {
         .task(id: item.persistentModelID) {
             allowHeavyPreview = false
             webPreviewReady = false
+            cachedCodeSummary = nil
+            retryLinkMetadataIfNeeded()
+
+            if item.contentType == .code {
+                let content = item.content
+                let lang = item.resolvedCodeLanguage
+                let summary = await Task.detached(priority: .userInitiated) {
+                    QuickPreviewPane.buildCodeSummary(text: content, language: lang)
+                }.value
+                if !Task.isCancelled {
+                    cachedCodeSummary = summary
+                }
+            }
+
             try? await Task.sleep(for: heavyPreviewDelay)
             guard !Task.isCancelled else { return }
             allowHeavyPreview = true
@@ -350,13 +403,14 @@ struct QuickPreviewPane: View {
     private var linkPreview: some View {
         let trimmed = item.content.trimmingCharacters(in: .whitespacesAndNewlines)
         if let url = URL(string: trimmed) {
-            VStack(alignment: .leading, spacing: 0) {
-                linkSummaryHeader(url: url)
-                    .padding(.horizontal, 14)
-                    .padding(.top, 12)
-                    .padding(.bottom, 10)
+            let webviewActive = ((imageLinkPreviewEnabled && LinkMetadataFetcher.isImageURL(trimmed)) || webPreviewEnabled) && allowHeavyPreview
+            if webviewActive {
+                VStack(alignment: .leading, spacing: 0) {
+                    linkSummaryHeader(url: url)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 12)
+                        .padding(.bottom, 10)
 
-                if ((imageLinkPreviewEnabled && LinkMetadataFetcher.isImageURL(trimmed)) || webPreviewEnabled), allowHeavyPreview {
                     Divider().opacity(0.25)
                     ZStack {
                         WebPreviewView(url: url) { ready in
@@ -372,11 +426,11 @@ struct QuickPreviewPane: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.bottom, 10)
-                } else {
-                    linkStaticPreview(url: url)
-                        .padding(.horizontal, 10)
-                        .padding(.bottom, 10)
                 }
+            } else {
+                linkStaticPreview(url: url)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 10)
             }
         } else {
             NativeTextView(text: item.content, richTextData: item.richTextData, richTextType: item.richTextType)
@@ -388,6 +442,7 @@ struct QuickPreviewPane: View {
     // MARK: - Link Static Preview
 
     @State private var isLinkButtonHovered = false
+    @State private var isCopyButtonHovered = false
 
     @ViewBuilder
     private var codePreview: some View {
@@ -520,8 +575,11 @@ struct QuickPreviewPane: View {
     }
 
     private func quickMetadataBadge(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .medium, design: .rounded))
+        // Bump lowercase text slightly so its x-height roughly matches
+        // cap-height of uppercase siblings (e.g. "HTTPS" badge).
+        let hasLowercase = text.contains(where: { $0.isLowercase })
+        return Text(text)
+            .font(.system(size: hasLowercase ? 12 : 10, weight: .medium, design: .rounded))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
@@ -530,51 +588,105 @@ struct QuickPreviewPane: View {
 
     @ViewBuilder
     private func linkStaticPreview(url: URL) -> some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             if let img = validFavicon(minSize: 32) {
                 Image(nsImage: img)
                     .resizable()
                     .interpolation(.high)
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
             } else {
                 Image(systemName: "globe")
                     .font(.system(size: 36, weight: .light))
                     .foregroundStyle(.secondary)
                     .frame(width: 48, height: 48)
+                    .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+            }
+
+            if let title = item.linkTitle, !title.isEmpty {
+                Text(title)
+                    .font(.system(size: 17, weight: .semibold))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+            }
+
+            HStack(spacing: 6) {
+                quickMetadataBadge(Self.displayHost(for: url))
+                if let scheme = url.scheme?.uppercased(), !scheme.isEmpty {
+                    quickMetadataBadge(scheme)
+                }
             }
 
             Text(url.absoluteString)
-                .font(.system(size: 13))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Color.accentColor)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .textSelection(.enabled)
 
-            if let title = item.linkTitle {
-                Text(title)
+            let path = Self.displayPath(for: url)
+            if !path.isEmpty {
+                Text(path)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .truncationMode(.middle)
             }
 
-            Button {
-                NSWorkspace.shared.open(url)
-            } label: {
-                HStack(spacing: 4) {
-                    Image(nsImage: defaultBrowserIcon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 16, height: 16)
-                    Text(L10n.tr("detail.openInBrowser"))
-                        .font(.system(size: 12))
+            HStack(spacing: 12) {
+                Button {
+                    NSWorkspace.shared.open(url)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(nsImage: defaultBrowserIcon)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 16, height: 16)
+                        Text(L10n.tr("detail.openInBrowser"))
+                            .font(.system(size: 12))
+                    }
+                    .foregroundStyle(isLinkButtonHovered ? .primary : .secondary)
                 }
-                .foregroundStyle(isLinkButtonHovered ? .primary : .secondary)
+                .buttonStyle(.plain)
+                .onHover { isLinkButtonHovered = $0 }
+
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(url.absoluteString, forType: .string)
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 13))
+                        Text(L10n.tr("action.copy"))
+                            .font(.system(size: 12))
+                    }
+                    .foregroundStyle(isCopyButtonHovered ? .primary : .secondary)
+                }
+                .buttonStyle(.plain)
+                .onHover { isCopyButtonHovered = $0 }
             }
-            .buttonStyle(.plain)
-            .onHover { isLinkButtonHovered = $0 }
         }
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+
+    private func retryLinkMetadataIfNeeded() {
+        guard item.contentType == .link,
+              item.linkTitle == nil,
+              let context = item.modelContext,
+              let _ = URL(string: item.content.trimmingCharacters(in: .whitespacesAndNewlines))
+        else { return }
+        let targetItem = item
+        Task {
+            let metadata = await LinkMetadataFetcher.shared.fetchMetadata(urlString: targetItem.content)
+            await MainActor.run {
+                guard !targetItem.isDeleted else { return }
+                if let title = metadata.title, !title.isEmpty { targetItem.linkTitle = title }
+                if let favicon = metadata.faviconData, targetItem.faviconData == nil { targetItem.faviconData = favicon }
+                ClipItemStore.saveAndNotifyContent(context)
+            }
+        }
     }
 
     private func validFavicon(minSize: CGFloat) -> NSImage? {
@@ -590,14 +702,14 @@ struct QuickPreviewPane: View {
         return NSWorkspace.shared.icon(forFile: browserURL.path)
     }
 
-    static func buildCodeSummary(
+    nonisolated static func buildCodeSummary(
         text: String,
         language: CodeLanguage?,
         previewLineLimit: Int = 8,
         previewCharacterLimit: Int = 420,
         expandedPreviewCharacterLimit: Int = 20_000
     ) -> CodePreviewSummary {
-        let resolvedLanguage = language ?? CodeDetector.detectLanguage(text) ?? .unknown
+        let resolvedLanguage = language ?? .unknown
         let lines = text.components(separatedBy: .newlines)
         let lineCount = max(lines.count, 1)
         let previewLines = Array(lines.prefix(previewLineLimit)).joined(separator: "\n")
