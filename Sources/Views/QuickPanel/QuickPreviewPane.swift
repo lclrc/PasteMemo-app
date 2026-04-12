@@ -448,58 +448,26 @@ struct QuickPreviewPane: View {
     private var codePreview: some View {
         let summary = codeSummary
 
-        VStack(spacing: 0) {
-            codeSummaryHeader(summary)
-
-            Divider().opacity(0.25)
-
-            if allowHeavyPreview, summary.supportsExpandedPreview {
-                CodePreviewView(
-                    code: item.content,
-                    language: item.resolvedCodeLanguage,
-                    deferredHighlightDelayMs: 120,
-                    maximumHighlightedCharacters: 12_000
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    Text(summary.snippet)
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        if allowHeavyPreview, summary.supportsExpandedPreview {
+            CodePreviewView(
+                code: item.content,
+                language: item.resolvedCodeLanguage,
+                deferredHighlightDelayMs: 120,
+                maximumHighlightedCharacters: 12_000
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                Text(summary.snippet)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-    }
-
-    private func codeSummaryHeader(_ summary: CodePreviewSummary) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            LanguageIcon(language: summary.language, size: 34)
-
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    quickMetadataBadge(summary.language.displayName)
-                    quickMetadataBadge("\(summary.lineCount)L")
-                    quickMetadataBadge("\(summary.characterCount)C")
-                }
-
-                if summary.isTruncated || !summary.supportsExpandedPreview {
-                    Text(summary.snippet)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(3)
-                        .multilineTextAlignment(.leading)
-                }
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
     }
 
     private func linkSummaryHeader(url: URL) -> some View {
@@ -520,56 +488,54 @@ struct QuickPreviewPane: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 8) {
                         quickMetadataBadge(Self.displayHost(for: url))
                         if let scheme = url.scheme?.uppercased(), !scheme.isEmpty {
                             quickMetadataBadge(scheme)
                         }
+
+                        Spacer(minLength: 8)
+
+                        Button {
+                            NSWorkspace.shared.open(url)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(nsImage: defaultBrowserIcon)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 14, height: 14)
+                                Text(L10n.tr("detail.openInBrowser"))
+                                    .font(.system(size: 12))
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(url.absoluteString, forType: .string)
+                        } label: {
+                            Label(L10n.tr("action.copy"), systemImage: "doc.on.doc")
+                                .font(.system(size: 12))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
 
                     if let title = item.linkTitle, !title.isEmpty {
                         Text(title)
-                            .font(.system(size: 14, weight: .medium))
-                            .lineLimit(2)
-                    }
-
-                    let path = Self.displayPath(for: url)
-                    if !path.isEmpty {
-                        Text(path)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 14, weight: .semibold))
                             .lineLimit(1)
+                            .truncationMode(.tail)
                     }
 
                     Text(url.absoluteString)
                         .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(2)
+                        .foregroundStyle(Color.accentColor)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                         .textSelection(.enabled)
                 }
-            }
-
-            HStack(spacing: 8) {
-                Button {
-                    NSWorkspace.shared.open(url)
-                } label: {
-                    Label(L10n.tr("detail.openInBrowser"), systemImage: "arrow.up.right.square")
-                        .font(.system(size: 12))
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-
-                Button {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(url.absoluteString, forType: .string)
-                } label: {
-                    Label(L10n.tr("action.copy"), systemImage: "doc.on.doc")
-                        .font(.system(size: 12))
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-
-                Spacer(minLength: 0)
             }
         }
     }
