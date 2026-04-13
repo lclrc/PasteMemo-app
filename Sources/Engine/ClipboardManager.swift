@@ -342,8 +342,14 @@ final class ClipboardManager: ObservableObject {
                 if existingHasRichText != newHasRichText {
                     return true
                 }
+                return existingItem.richTextData == newItem.richTextData
             }
-            return existingItem.richTextData == newItem.richTextData
+            // For non-text, non-image types (.link, .code, .phone, .color,
+            // .file, .email, .video, .audio, .document, ...), the content
+            // string is the authoritative identity — an identical URL copied
+            // from Chrome vs Terminal should merge even if Chrome attached
+            // HTML rich text and Terminal didn't.
+            return true
         }
 
         guard existingIsRelaxedText, newIsRelaxedText else {
@@ -456,10 +462,44 @@ final class ClipboardManager: ObservableObject {
         }
         // Bare domain: example.com, sub.example.com/path
         if text.range(of: #"^[a-zA-Z0-9]([a-zA-Z0-9-]*\.)+[a-zA-Z]{2,}(/\S*)?$"#, options: .regularExpression) != nil {
+            // Reject if the trailing label is a common file extension and
+            // the text has no URL path (e.g. "mn-little-yellow-duck.conf"
+            // or "foo.bar.json"). This avoids misclassifying config file
+            // names as links.
+            if !text.contains("/") {
+                let lastDot = text.lastIndex(of: ".")!
+                let suffix = text[text.index(after: lastDot)...].lowercased()
+                if Self.nonDomainSuffixes.contains(String(suffix)) { return false }
+            }
             return true
         }
         return false
     }
+
+    private static let nonDomainSuffixes: Set<String> = [
+        // configs / text
+        "conf", "config", "ini", "env", "lock", "plist", "toml",
+        "log", "txt", "md", "markdown", "rtf", "csv", "tsv",
+        // data / markup
+        "json", "xml", "yml", "yaml", "html", "htm", "xhtml", "sql",
+        // code
+        "swift", "js", "ts", "jsx", "tsx", "py", "rb", "go", "rs",
+        "c", "cc", "cpp", "cxx", "h", "hpp", "hxx", "m", "mm",
+        "java", "kt", "kts", "scala", "groovy", "dart", "lua",
+        "sh", "bash", "zsh", "fish", "ps1", "bat", "cmd",
+        "php", "pl", "r", "jl", "clj", "erl", "ex", "exs",
+        // binaries / archives
+        "exe", "dll", "so", "dylib", "a", "o",
+        "zip", "tar", "gz", "bz2", "xz", "rar", "7z",
+        "iso", "dmg", "pkg", "deb", "rpm", "app",
+        // documents
+        "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp",
+        "pages", "numbers", "keynote",
+        // media
+        "png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "tif", "svg", "ico", "heic", "heif",
+        "mp3", "wav", "flac", "ogg", "m4a", "aac",
+        "mp4", "mov", "avi", "mkv", "webm", "m4v"
+    ]
 
     private func isFilePath(_ text: String) -> Bool {
         guard text.hasPrefix("/") || text.hasPrefix("~") else { return false }
